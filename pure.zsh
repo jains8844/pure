@@ -140,7 +140,7 @@ prompt_pure_preprompt_render() {
 	[[ -n $prompt_pure_state[username] ]] && preprompt_parts+=($prompt_pure_state[username])
 
 	# Set the path.
-	preprompt_parts+=('%F{${prompt_pure_colors[path]}}%~%f')
+	preprompt_parts+=('%F{${prompt_pure_colors[path]}}[%~]%f')
 
 	# Git branch and dirty status info.
 	typeset -gA prompt_pure_vcs_info
@@ -188,7 +188,11 @@ prompt_pure_preprompt_render() {
 
 	if [[ $1 == precmd ]]; then
 		# Initial newline, for spaciousness.
-		print
+		if [ -v INITIAL ]; then
+			print
+		else
+			typeset -g INITIAL
+		fi
 	elif [[ $prompt_pure_last_prompt != $expanded_prompt ]]; then
 		# Redraw the prompt.
 		prompt_pure_reset_prompt
@@ -706,10 +710,12 @@ prompt_pure_state_setup() {
 
 	hostname='%F{$prompt_pure_colors[host]}@%m%f'
 	# Show `username@host` if logged in through SSH.
-	[[ -n $ssh_connection ]] && username='%F{$prompt_pure_colors[user]}%n%f'"$hostname"
+	# [[ -n $ssh_connection ]] && username='%F{$prompt_pure_colors[user]}%n%f'"$hostname"
 
 	# Show `username@host` if inside a container and not in GitHub Codespaces.
-	[[ -z "${CODESPACES}" ]] && prompt_pure_is_inside_container && username='%F{$prompt_pure_colors[user]}%n%f'"$hostname"
+	[[ -z "${CODESPACES}" ]] && username='%F{$prompt_pure_colors[user]}%n%f'"$hostname"
+
+	[[ -n $ssh_connection ]] && username='%F{$prompt_pure_colors[ssh]}(%M)%f ''%F{$prompt_pure_colors[user]}%n%f'
 
 	# Show `username@host` if root, with username in default color.
 	[[ $UID -eq 0 ]] && username='%F{$prompt_pure_colors[user:root]}%n%f'"$hostname"
@@ -722,14 +728,12 @@ prompt_pure_state_setup() {
 	)
 }
 
-# Return true if executing inside a Docker, OCI, LXC, or systemd-nspawn container.
+# Return true if executing inside a Docker, LXC or systemd-nspawn container.
 prompt_pure_is_inside_container() {
 	local -r cgroup_file='/proc/1/cgroup'
 	local -r nspawn_file='/run/host/container-manager'
 	[[ -r "$cgroup_file" && "$(< $cgroup_file)" = *(lxc|docker)* ]] \
 		|| [[ "$container" == "lxc" ]] \
-		|| [[ "$container" == "oci" ]] \
-		|| [[ "$container" == "podman" ]] \
 		|| [[ -r "$nspawn_file" ]]
 }
 
@@ -834,6 +838,7 @@ prompt_pure_setup() {
 		user                 242
 		user:root            default
 		virtualenv           242
+		ssh 				 245
 	)
 	prompt_pure_colors=("${(@kv)prompt_pure_colors_default}")
 
